@@ -12,6 +12,27 @@ sub gen-random($n) {
 
 my @open-files;
 
+sub tempnam (
+    $tmpl? = '*' x 10,          # positional template
+    :$tempdir? = $*TMPDIR,      # where to create these temp files
+    :$prefix? = '',             # filename prefix
+    :$suffix? = '',             # filename suffix
+    :$unlink?  = 1,             # remove when program exits?
+    :$template = $tmpl          # required named template
+) is export {
+
+    my $count = MAX-RETRIES;
+    while ($count--) {
+        my $tempfile = $template;
+        $tempfile ~~ s/ '*' ** 4..* /{ gen-random($/.chars) }/;
+        my $filename = "$tempdir/$prefix$tempfile$suffix";
+        next if $filename.IO ~~ :e;
+        push @open-files, $filename if $unlink;
+        return $filename;
+    }
+    return ();
+}
+
 sub tempfile (
     $tmpl? = '*' x 10,          # positional template
     :$tempdir? = $*TMPDIR,      # where to create these temp files
@@ -29,7 +50,7 @@ sub tempfile (
         next if $filename.IO ~~ :e;
         my $fh = try { CATCH { next }; open $filename, :w;  };
         push @open-files, $filename if $unlink;
-        return $filename,$fh;
+        return $fh,$filename;
     }
     return ();
 }
